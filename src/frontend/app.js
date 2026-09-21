@@ -1,11 +1,11 @@
-const API_BASE = "http://localhost:8080";
+const API_BASE = "http://127.0.0.1:8080";
 
 const fallbackWorkers = [
-  { id: 1, name: "Ashutosh Soni", location: "Tunnel 7", status: "CRITICAL", hr: 38, spo2: 89, temp: 38.5, pressure: 50, battery: 74, signal: 95, x: 420, y: 292, color: "#c83737", trend: "No movement detected" },
-  { id: 2, name: "Meera Rao", location: "Tunnel 9", status: "WARNING", hr: 142, spo2: 96, temp: 39.4, pressure: 49, battery: 80, signal: 91, x: 520, y: 360, color: "#cf6e21", trend: "Heat exposure rising" },
-  { id: 3, name: "Ravi Kumar", location: "Tunnel 9", status: "NORMAL", hr: 128, spo2: 94, temp: 37.8, pressure: 49, battery: 81, signal: 88, x: 555, y: 360, color: "#17885e", trend: "Normal operation" },
-  { id: 4, name: "Nisha Patel", location: "Tunnel 5", status: "INFO", hr: 110, spo2: 97, temp: 37.1, pressure: 45, battery: 76, signal: 94, x: 420, y: 216, color: "#326fbd", trend: "Cooling break" },
-  { id: 5, name: "Imran Khan", location: "Tunnel 8", status: "NORMAL", hr: 102, spo2: 98, temp: 36.9, pressure: 43, battery: 79, signal: 97, x: 710, y: 292, color: "#17885e", trend: "Near exit route" }
+  { id: 1, name: "Worker 1", location: "Tunnel 7", status: "CRITICAL", hr: 38, spo2: 89, temp: 38.5, pressure: 50, battery: 74, signal: 95, x: 420, y: 292, color: "#c83737", trend: "No movement detected" },
+  { id: 2, name: "Worker 2", location: "Tunnel 9", status: "WARNING", hr: 142, spo2: 96, temp: 39.4, pressure: 49, battery: 80, signal: 91, x: 520, y: 360, color: "#cf6e21", trend: "Heat exposure rising" },
+  { id: 3, name: "Worker 3", location: "Tunnel 9", status: "NORMAL", hr: 128, spo2: 94, temp: 37.8, pressure: 49, battery: 81, signal: 88, x: 555, y: 360, color: "#17885e", trend: "Normal operation" },
+  { id: 4, name: "Worker 4", location: "Tunnel 5", status: "INFO", hr: 110, spo2: 97, temp: 37.1, pressure: 45, battery: 76, signal: 94, x: 420, y: 216, color: "#326fbd", trend: "Cooling break" },
+  { id: 5, name: "Worker 5", location: "Tunnel 8", status: "NORMAL", hr: 102, spo2: 98, temp: 36.9, pressure: 43, battery: 79, signal: 97, x: 710, y: 292, color: "#17885e", trend: "Near exit route" }
 ];
 
 const fallbackTunnels = [
@@ -43,153 +43,179 @@ const fallbackHistoryRows = [
   ["12:20:18", "W5", "Relay Update", "104", "98%", "36.9 C", "Relay assigned"]
 ];
 
-let workers = [...fallbackWorkers];
-let tunnels = [...fallbackTunnels];
-let links = [...fallbackLinks];
-let alerts = [...fallbackAlerts];
-let logs = [...fallbackLogs];
-let historyRows = [...fallbackHistoryRows];
+const tunnelCoordinates = {
+  Surface: { x: 92, y: 62 },
+  T1: { x: 190, y: 128 },
+  T2: { x: 310, y: 128 },
+  T4: { x: 520, y: 128 },
+  T3: { x: 190, y: 216 },
+  T5: { x: 420, y: 216 },
+  T6: { x: 650, y: 216 },
+  T7: { x: 420, y: 292 },
+  T8: { x: 710, y: 292 },
+  T9: { x: 535, y: 360 },
+  "Exit B": { x: 795, y: 360 }
+};
+
+let workers = [];
+let tunnels = fallbackTunnels.slice();
+let links = fallbackLinks.slice();
+let alerts = fallbackAlerts.slice();
+let logs = fallbackLogs.slice();
+let historyRows = fallbackHistoryRows.slice();
 let selectedWorkerId = 1;
 let showRoutes = true;
 let depthView = false;
-let websocket = null;
-let usingLiveBackend = false;
+const themes = ["paper", "mono", "dark"];
+let currentTheme = "paper";
 
 const $ = (id) => document.getElementById(id);
 
+function applyTheme(theme = currentTheme) {
+  currentTheme = theme;
+  document.body.dataset.theme = theme;
+  const themeToggle = $("themeToggle");
+  if (themeToggle) {
+    themeToggle.textContent = theme === "paper" ? "Paper" : theme === "mono" ? "Mono" : "Dark";
+  }
+}
+
+function getStatusColor(status) {
+  const map = {
+    CRITICAL: "#c83737",
+    WARNING: "#cf6e21",
+    ALERT: "#cf6e21",
+    NORMAL: "#17885e",
+    INFO: "#326fbd",
+    HIGH: "#cf6e21",
+    MEDIUM: "#326fbd",
+    LOW: "#17885e",
+  };
+  return map[status] || "#17885e";
+}
+
 function normalizeWorker(raw) {
-  const base = fallbackWorkers.find((worker) => worker.id === Number(raw.id)) || fallbackWorkers[0];
+  const location = raw.location || "T7";
+  const status = raw.status || "NORMAL";
+  const coords = tunnelCoordinates[location] || { x: 420, y: 292 };
   return {
-    ...base,
-    id: Number(raw.id),
-    name: raw.name || base.name,
-    location: raw.location || base.location,
-    status: (raw.status || base.status).toUpperCase(),
-    hr: Number(raw.heart_rate ?? raw.hr ?? base.hr),
-    spo2: Number(raw.spo2 ?? base.spo2),
-    temp: Number(raw.temperature_c ?? raw.temp ?? base.temp),
-    pressure: Number(raw.pressure_atm ?? raw.pressure ?? base.pressure),
-    battery: Number(raw.battery_percent ?? raw.battery ?? base.battery),
-    signal: Number(raw.signal_quality ?? raw.signal ?? base.signal),
-    trend: raw.trend || base.trend,
-    x: base.x,
-    y: base.y,
-    color: base.color,
+    id: Number(raw.id ?? 1),
+    name: raw.name || `Worker ${raw.id || 1}`,
+    location,
+    status,
+    hr: Number(raw.hr ?? 98),
+    spo2: Number(raw.spo2 ?? 98),
+    temp: Number(raw.temperature_c ?? raw.temp_c ?? 36.8),
+    pressure: Number(raw.pressure_atm ?? 45),
+    battery: Number(raw.battery_percent ?? 80),
+    signal: Number(raw.signal_quality ?? 90),
+    x: coords.x,
+    y: coords.y,
+    color: getStatusColor(status),
+    trend: raw.trend || "Normal operation",
   };
 }
 
 function normalizeAlert(raw) {
+  const level = (raw.level || "info").toLowerCase();
   return {
-    level: String(raw.level || "info").toLowerCase(),
-    title: raw.title || "System update",
-    msg: raw.message || raw.msg || "No additional details.",
+    level,
+    title: raw.title || "System message",
+    msg: raw.message || raw.msg || "Monitoring stable.",
     action: raw.action || "Review",
   };
 }
 
-function mapServerData(serverWorkers = [], serverAlerts = [], topology = { tunnels: [], links: [] }, history = []) {
-  const baseById = new Map(fallbackWorkers.map((worker) => [worker.id, worker]));
-  workers = serverWorkers.length ? serverWorkers.map((worker) => normalizeWorker(worker)) : [...fallbackWorkers];
-
-  if (serverWorkers.length === 0) {
-    workers = [...fallbackWorkers];
-  }
-
-  workers = workers.map((worker) => {
-    const base = baseById.get(worker.id) || fallbackWorkers[0];
-    return { ...base, ...worker, x: base.x, y: base.y, color: base.color };
-  });
-
-  alerts = serverAlerts.length ? serverAlerts.map(normalizeAlert) : [...fallbackAlerts];
-  tunnels = topology.tunnels?.length ? topology.tunnels.map((tunnel) => ({
-    id: tunnel.id,
-    x: typeof tunnel.x === "number" ? tunnel.x : fallbackTunnels.find((item) => item.id === String(tunnel.id))?.x || 0,
-    y: typeof tunnel.y === "number" ? tunnel.y : fallbackTunnels.find((item) => item.id === String(tunnel.id))?.y || 0,
-    info: tunnel.info || tunnel.name || "Mine tunnel",
-  })) : [...fallbackTunnels];
-  links = topology.links?.length ? topology.links : [...fallbackLinks];
-
-  historyRows = history.length ? history.map((row) => [
-    row.time || "--:--",
-    row.worker || "--",
-    row.event || row.title || "Update",
-    String(row.heart_rate ?? "--"),
-    String(row.spo2 ?? "--"),
-    String(row.temperature ?? "--"),
-    row.action || "Reviewed",
-  ]) : [...fallbackHistoryRows];
-
-  logs = fallbackLogs;
-  selectedWorkerId = Math.min(Math.max(selectedWorkerId, 1), workers.length);
+function normalizeHistoryRow(row) {
+  if (Array.isArray(row)) return row;
+  const timestamp = new Date(row.timestamp || Date.now()).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const workerName = row.worker_id ? `W${row.worker_id}` : `W${row.id || 1}`;
+  const status = row.status || "Stable";
+  const hr = row.hr ?? 0;
+  const spo2 = row.spo2 ?? 0;
+  const temp = Number(row.temperature_c ?? 36.8).toFixed(1);
+  const action = status === "CRITICAL" ? "Rescue recommended" : "Monitor";
+  return [timestamp, workerName, status, `${hr}`, `${spo2}%`, `${temp} C`, action];
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return response.json();
-}
-
-async function hydrateDashboard() {
+async function loadDashboardState() {
   try {
-    const [serverWorkers, serverAlerts, topology, history] = await Promise.all([
-      fetchJson(`${API_BASE}/api/workers`),
-      fetchJson(`${API_BASE}/api/alerts/active`),
-      fetchJson(`${API_BASE}/api/mine/topology`),
-      fetchJson(`${API_BASE}/api/history`),
+    const [workersResponse, alertsResponse, historyResponse, topologyResponse] = await Promise.all([
+      fetch(`${API_BASE}/api/workers`),
+      fetch(`${API_BASE}/api/alerts/active`),
+      fetch(`${API_BASE}/api/history`),
+      fetch(`${API_BASE}/api/mine/topology`),
     ]);
 
-    mapServerData(serverWorkers, serverAlerts, topology, history);
-    usingLiveBackend = true;
+    if (workersResponse.ok) {
+      const payload = await workersResponse.json();
+      workers = Array.isArray(payload) ? payload.map(normalizeWorker) : fallbackWorkers.slice();
+    } else {
+      workers = fallbackWorkers.slice();
+    }
+
+    if (alertsResponse.ok) {
+      const payload = await alertsResponse.json();
+      alerts = Array.isArray(payload) ? payload.map(normalizeAlert) : fallbackAlerts.slice();
+    } else {
+      alerts = fallbackAlerts.slice();
+    }
+
+    if (historyResponse.ok) {
+      const payload = await historyResponse.json();
+      historyRows = Array.isArray(payload) ? payload.map(normalizeHistoryRow) : fallbackHistoryRows.slice();
+    } else {
+      historyRows = fallbackHistoryRows.slice();
+    }
+
+    if (topologyResponse.ok) {
+      const payload = await topologyResponse.json();
+      if (payload && Array.isArray(payload.nodes) && payload.nodes.length) {
+        tunnels = payload.nodes.map((node) => ({
+          id: node.id,
+          x: Number(node.x ?? tunnelCoordinates[node.id]?.x ?? 420),
+          y: Number(node.y ?? tunnelCoordinates[node.id]?.y ?? 292),
+          info: node.info || `${node.id} tunnel`,
+        }));
+        links = Array.isArray(payload.edges) ? payload.edges.map(([source, target]) => [source, target]) : fallbackLinks.slice();
+      }
+    }
+
+    if (!workers.length) {
+      workers = fallbackWorkers.slice();
+    }
+    if (!alerts.length) {
+      alerts = fallbackAlerts.slice();
+    }
+    if (!historyRows.length) {
+      historyRows = fallbackHistoryRows.slice();
+    }
+
+    if (!workers.some((worker) => worker.id === selectedWorkerId)) {
+      selectedWorkerId = workers[0]?.id ?? 1;
+    }
+
+    renderAll();
     $("sync").textContent = "live";
     $("footerSync").textContent = "live";
   } catch (error) {
-    mapServerData();
-    usingLiveBackend = false;
-    console.warn("Backend unavailable, using local demo data:", error);
-  }
-
-  renderAll();
-  connectWebSocket();
-}
-
-function connectWebSocket() {
-  if (websocket) {
-    websocket.close();
-  }
-
-  try {
-    const wsUrl = `${API_BASE.replace(/^http/, "ws")}/ws/dashboard`;
-    websocket = new WebSocket(wsUrl);
-    websocket.onmessage = (event) => {
-      const payload = JSON.parse(event.data);
-      if (payload.type === "telemetry" && Array.isArray(payload.workers)) {
-        workers = workers.map((worker) => {
-          const live = payload.workers.find((item) => Number(item.id) === worker.id);
-          if (!live) return worker;
-          return normalizeWorker({
-            ...worker,
-            ...live,
-            id: worker.id,
-          });
-        });
-        renderAll();
-      }
-    };
-    websocket.onclose = () => {
-      if (!usingLiveBackend) return;
-      setTimeout(connectWebSocket, 2000);
-    };
-  } catch (error) {
-    console.warn("WebSocket unavailable:", error);
+    console.warn("Dashboard sync fallback active:", error);
+    workers = fallbackWorkers.slice();
+    alerts = fallbackAlerts.slice();
+    logs = fallbackLogs.slice();
+    historyRows = fallbackHistoryRows.slice();
+    tunnels = fallbackTunnels.slice();
+    links = fallbackLinks.slice();
+    renderAll();
+    $("sync").textContent = "fallback";
+    $("footerSync").textContent = "fallback";
   }
 }
 
 function renderAlerts() {
   $("alerts").innerHTML = alerts.map((alert) => `
     <article class="alert ${alert.level}">
-      <header><strong>${alert.title}</strong><span>${alert.level.toUpperCase()}</span></header>
+      <header><strong>${alert.title}</strong><span>${String(alert.level).toUpperCase()}</span></header>
       <p>${alert.msg}</p>
       <button type="button">${alert.action}</button>
     </article>
@@ -214,8 +240,8 @@ function renderWorkers() {
     card.addEventListener("click", () => {
       selectedWorkerId = Number(card.dataset.worker);
       renderAll();
-      const chosen = workers.find((worker) => worker.id === selectedWorkerId);
-      setMapDetail(`W${selectedWorkerId} selected. ${chosen?.trend || "No update available."}`);
+      const selectedWorker = workers.find((w) => w.id === selectedWorkerId);
+      setMapDetail(`W${selectedWorkerId} selected. ${selectedWorker ? selectedWorker.trend : "Monitoring"}`);
     });
   });
 }
@@ -260,7 +286,7 @@ function renderMap() {
   document.querySelectorAll(".map-node").forEach((node) => {
     node.addEventListener("click", () => {
       const tunnel = tunnels.find((item) => item.id === node.dataset.tunnel);
-      setMapDetail(`${tunnel?.id || "Tunnel"}: ${tunnel?.info || "No details available."}`);
+      if (tunnel) setMapDetail(`${tunnel.id}: ${tunnel.info}`);
     });
   });
   document.querySelectorAll(".worker").forEach((node) => {
@@ -285,6 +311,7 @@ function sparkPath(values) {
 
 function renderVitals() {
   const worker = workers.find((item) => item.id === selectedWorkerId) || workers[0];
+  if (!worker) return;
   $("workerSelect").innerHTML = workers.map((item) => `<option value="${item.id}" ${item.id === selectedWorkerId ? "selected" : ""}>W${item.id} ${item.name}</option>`).join("");
   const metrics = [
     ["Heart Rate", `${worker.hr} bpm`, worker.hr > 150 || worker.hr < 45 ? "ALARM" : "STABLE", [112, 120, 126, 138, 145, worker.hr]],
@@ -307,6 +334,7 @@ function renderVitals() {
 }
 
 function renderStaticLists() {
+  logs = logs.length ? logs : fallbackLogs.slice();
   $("log").innerHTML = logs.map((line) => `<div class="log-line">${line}</div>`).join("");
   $("history").innerHTML = historyRows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("");
 }
@@ -328,25 +356,8 @@ function tick() {
   $("clock").textContent = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Kolkata" }) + " IST";
   const latency = 240 + Math.round(Math.random() * 90);
   $("latency-pill").textContent = `${latency} ms`;
-  $("sync").textContent = usingLiveBackend ? "live" : `${1 + Math.round(Math.random() * 3)}s ago`;
+  $("sync").textContent = $("sync").textContent === "live" ? "live" : `${1 + Math.round(Math.random() * 3)}s ago`;
   $("footerSync").textContent = $("sync").textContent;
-}
-
-function simulateTelemetry() {
-  if (usingLiveBackend) return;
-
-  workers.forEach((worker) => {
-    if (worker.id !== 1) {
-      worker.hr = Math.max(92, Math.min(165, worker.hr + Math.round(Math.random() * 6 - 3)));
-      worker.spo2 = Math.max(92, Math.min(99, worker.spo2 + Math.round(Math.random() * 2 - 1)));
-      worker.temp = Math.max(36.5, Math.min(41.5, worker.temp + (Math.random() - 0.48) * 0.16));
-      worker.signal = Math.max(82, Math.min(99, worker.signal + Math.round(Math.random() * 4 - 2)));
-    }
-  });
-  const avgBattery = Math.round(workers.reduce((sum, worker) => sum + worker.battery, 0) / workers.length);
-  $("battery").textContent = `${avgBattery}%`;
-  renderWorkers();
-  renderVitals();
 }
 
 $("routesToggle").addEventListener("click", () => {
@@ -376,7 +387,15 @@ $("workerSelect").addEventListener("change", (event) => {
   renderAll();
 });
 
-hydrateDashboard();
+renderAll();
+applyTheme();
+
+$("themeToggle").addEventListener("click", () => {
+  const currentIndex = themes.indexOf(currentTheme);
+  const nextTheme = themes[(currentIndex + 1) % themes.length];
+  applyTheme(nextTheme);
+});
+
 tick();
 setInterval(tick, 1000);
-setInterval(simulateTelemetry, 2800);
+setInterval(loadDashboardState, 3000);
