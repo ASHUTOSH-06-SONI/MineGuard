@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:8080";
+const API_BASE = "";
 
 const fallbackWorkers = [
   { id: 1, name: "Worker 1", location: "Tunnel 7", status: "CRITICAL", hr: 38, spo2: 89, temp: 38.5, pressure: 50, battery: 74, signal: 95, x: 420, y: 292, color: "#c83737", trend: "No movement detected" },
