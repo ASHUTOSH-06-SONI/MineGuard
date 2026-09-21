@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MineGuard Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MineGuard</p>
+          <h1>Command Center</h1>
+        </div>
+        <div class="header-actions">
+          <button id="themeToggle" type="button" aria-label="Toggle theme">Paper</button>
+          <div class="shift">
+            <span>Shift ID: 2026-09-19-001</span>
+            <strong id="clock">14:35 IST</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="panel alert-panel" aria-label="Alert panel">
+          <div class="panel-head">
+            <h2>Priority Alerts</h2>
+            <span class="count">5 active</span>
+          </div>
+          <div id="alerts" class="alert-list"></div>
+        </section>
+
+        <section class="panel feed-panel" aria-label="Real-time worker feed">
+          <div class="panel-head">
+            <h2>Real-Time Feed</h2>
+            <span class="live-dot">Live LoRa mesh</span>
+          </div>
+          <div id="workers" class="worker-list"></div>
+        </section>
+
+        <section class="panel status-panel" aria-label="Network and shift status">
+          <div class="panel-head">
+            <h2>Quick Status</h2>
+            <span id="latency-pill" class="signal-pill">280 ms</span>
+          </div>
+          <div class="metric-grid">
+            <article>
+              <span>Mesh online</span>
+              <strong>5/5</strong>
+            </article>
+            <article>
+              <span>Signal quality</span>
+              <strong>Strong</strong>
+            </article>
+            <article>
+              <span>Battery avg</span>
+              <strong id="battery">78%</strong>
+            </article>
+            <article>
+              <span>Last sync</span>
+              <strong id="sync">2s ago</strong>
+            </article>
+          </div>
+          <div class="incident-summary">
+            <h3>Incidents This Shift</h3>
+            <p><strong>0</strong> confirmed falls</p>
+            <p><strong>2</strong> heat alerts</p>
+            <p><strong>1</strong> false alarm</p>
+          </div>
+          <div class="rescue-estimate">
+            <span>Rescue ETA</span>
+            <strong>12 min</strong>
+            <small>Surface to Tunnel 7 via primary shaft</small>
+          </div>
+        </section>
+
+        <section class="panel map-panel" aria-label="Mine topology and hazards">
+          <div class="panel-head">
+            <h2>Mine Topology & Hazards</h2>
+            <div class="map-tools">
+              <button type="button" id="routesToggle" class="icon-button active" title="Show all routes">Routes</button>
+              <button type="button" id="viewToggle" class="icon-button" title="Toggle depth view">3D</button>
+              <button type="button" id="exportBtn" class="icon-button" title="Export rescue briefing">PDF</button>
+            </div>
+          </div>
+          <div class="map-wrap">
+            <svg id="mineMap" viewBox="0 0 900 430" role="img" aria-label="Interactive mine topology">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3fbf8f" />
+                </marker>
+                <radialGradient id="gas">
+                  <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.42" />
+                  <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.02" />
+                </radialGradient>
+                <radialGradient id="heat">
+                  <stop offset="0%" stop-color="#ff8f3d" stop-opacity="0.48" />
+                  <stop offset="100%" stop-color="#ff8f3d" stop-opacity="0.04" />
+                </radialGradient>
+              </defs>
+              <g id="depthGrid"></g>
+              <g id="hazardsLayer"></g>
+              <g id="tunnelsLayer"></g>
+              <g id="routesLayer"></g>
+              <g id="nodesLayer"></g>
+              <g id="workersLayer"></g>
+            </svg>
+          </div>
+          <div id="mapDetails" class="map-details">Select a worker or tunnel for location details.</div>
+        </section>
+
+        <section class="panel vitals-panel" aria-label="Worker vital signs">
+          <div class="panel-head">
+            <h2>Worker Details</h2>
+            <span id="statusBadge" class="status-badge normal">Normal</span>
+          </div>
+          <div id="detailCard" class="detail-card"></div>
+        </section>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
