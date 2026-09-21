@@ -1,8 +1,8 @@
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://127.0.0.1:8080"
-    : "https://YOUR-BACKEND.onrender.com";
-
+    : "https://mineguard-650x.onrender.com";
+    
 const fallbackWorkers = [
   { id: 1, name: "Worker 1", location: "Tunnel 7", status: "CRITICAL", hr: 38, spo2: 89, temp: 38.5, pressure: 50, battery: 74, signal: 95, x: 420, y: 292, color: "#c83737", trend: "No movement detected" },
   { id: 2, name: "Worker 2", location: "Tunnel 9", status: "WARNING", hr: 142, spo2: 96, temp: 39.4, pressure: 49, battery: 80, signal: 91, x: 520, y: 360, color: "#cf6e21", trend: "Heat exposure rising" },
