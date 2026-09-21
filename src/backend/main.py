@@ -7,6 +7,7 @@ import math
 import os
 import random
 import sqlite3
+import tempfile
 from datetime import datetime, timezone
 from typing import Any
 
@@ -25,7 +26,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "mineguard.db")
+default_db_path = os.path.join(os.path.dirname(__file__), "mineguard.db")
+writeable_dir = os.path.dirname(default_db_path)
+if not os.access(writeable_dir, os.W_OK):
+    DB_PATH = os.path.join(tempfile.gettempdir(), "mineguard.db")
+else:
+    DB_PATH = default_db_path
 
 REGULATORY_THRESHOLDS = {
     "hr_warning": 120,
