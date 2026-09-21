@@ -1,3 +1,5 @@
 __pycache__/
 .pytest_cache/
 .venv/
+src/backend/mineguard.db
+src/backend/mineguard.db-journal
